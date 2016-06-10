@@ -1,23 +1,24 @@
-FROM alpine:3.3
+FROM centos:7
 
-RUN apk add --no-cache bash build-base curl git libffi-dev openssh openssl-dev py-pip python python-dev unzip \
-	&& git clone https://github.com/CiscoCloud/mantl /mantl \
+# Get Ansible
+RUN yum install -y bash curl git openssh python unzip > /dev/null
+RUN rpm -iUvh http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm \
+  && yum -y update > /dev/null \
+  && yum install -y gcc openssl-devel python-devel libffi-devel python-pip \
+  && git clone https://github.com/CiscoCloud/mantl /mantl \
 	&& pip install -r /mantl/requirements.txt \
-	&& apk del build-base python-dev py-pip
+	&& yum remove -y python-pip python-devel gcc openssl-devel
 
-VOLUME /local
-ENV MANTL_CONFIG_DIR /local
-
-VOLUME /root/.ssh
-
+# Get terraform
 ENV TERRAFORM_VERSION 0.6.16
-RUN mkdir -p /tmp/terraform/ && \
-    cd /tmp/terraform/ && \
-    curl -SLO https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip && \
-    cd /usr/local/bin/ && \
-    unzip /tmp/terraform/terraform_${TERRAFORM_VERSION}_linux_amd64.zip && \
-    rm -rf /tmp/terraform/
-ENV TERRAFORM_STATE $MANTL_CONFIG_DIR/terraform.tfstate
+RUN curl -sSLo /tmp/terraform.zip https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip && \
+    unzip -d /usr/local/bin /tmp/terraform.zip && \
+    rm -f /tmp/terraform.zip
 
+ENV TERRAFORM_STATE $MANTL_CONFIG_DIR/terraform.tfstate
+ENV MANTL_CONFIG_DIR /local
+VOLUME /local
+VOLUME /root/.ssh
 WORKDIR /mantl
+
 ENTRYPOINT ["/usr/bin/ssh-agent", "-t", "3600", "/bin/sh", "-c"]
